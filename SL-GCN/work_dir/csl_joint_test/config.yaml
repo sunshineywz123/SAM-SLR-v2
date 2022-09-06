@@ -1,0 +1,64 @@
+Experiment_name: csl_joint_test
+base_lr: 0.1
+batch_size: 64
+config: config/WLASL/test/test_joint.yaml
+device:
+- 0
+- 1
+eval_interval: 5
+feeder: feeders.feeder.Feeder
+groups: 8
+ignore_weights: []
+keep_rate: 0.9
+log_interval: 100
+model: model.decouple_gcn_attn.Model
+model_args:
+  block_size: 41
+  graph: graph.sign_27.Graph
+  graph_args:
+    labeling_mode: spatial
+  groups: 16
+  num_class: 500
+  num_person: 1
+  num_point: 27
+model_saved_name: ./save_models/csl_joint_test
+nesterov: true
+num_epoch: 250
+num_worker: 32
+only_train_epoch: 1
+only_train_part: true
+optimizer: SGD
+phase: test
+print_log: true
+save_interval: 2
+save_score: false
+seed: 1
+show_topk:
+- 1
+- 5
+start_epoch: 242
+step:
+- 150
+- 200
+test_batch_size: 64
+test_feeder_args:
+  data_path: /home/songyao/data/data/CSL/skeleton/val_data_joint.npy
+  debug: false
+  label_path: /home/songyao/data/data/CSL/skeleton/val_label.pkl
+  normalization: true
+  random_mirror: false
+train_feeder_args:
+  data_path: /home/songyao/data/data/CSL/skeleton/train_data_joint.npy
+  debug: false
+  is_vector: false
+  label_path: /home/songyao/data/data/CSL/skeleton/train_label.pkl
+  normalization: true
+  random_choose: true
+  random_mirror: true
+  random_mirror_p: 0.5
+  random_shift: true
+  window_size: 120
+warm_up_epoch: 20
+weight_decay: 0.0001
+weights: save_models/csl_joint-242.pt
+work_dir: ./work_dir/csl_joint_test

@@ -514,6 +514,7 @@ class Processor():
                     pickle.dump(score_dict, f)
         return np.mean(loss_value)
     def start(self):
+        # 训练
         if self.arg.phase == 'train':
             self.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
             self.global_step = int(self.arg.start_epoch * len(self.data_loader['train']) / self.arg.batch_size)
@@ -532,7 +533,7 @@ class Processor():
 
             print('best accuracy: ', self.best_acc,
                   ' model_name: ', self.arg.model_saved_name)
-
+        # 测试
         elif self.arg.phase == 'test':
             if not self.arg.test_feeder_args['debug']:
                 wf = self.arg.model_saved_name + '_wrong.txt'
@@ -565,7 +566,7 @@ def import_class(name):
         mod = getattr(mod, comp)
     return mod
 
-
+from yaml import Loader, Dumper
 if __name__ == '__main__':
     parser = get_parser()
 
@@ -573,7 +574,7 @@ if __name__ == '__main__':
     p = parser.parse_args()
     if p.config is not None:
         with open(p.config, 'r') as f:
-            default_arg = yaml.load(f)
+            default_arg = yaml.load(f,Loader)
         key = vars(p).keys()
         for k in default_arg.keys():
             if k not in key:
