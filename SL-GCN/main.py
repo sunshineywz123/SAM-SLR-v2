@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import argparse
+from bdb import set_trace
 import os
 import time
 import numpy as np
@@ -9,6 +10,7 @@ import pickle
 from collections import OrderedDict
 # torch
 import torch
+torch.cuda.empty_cache()
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
@@ -19,7 +21,13 @@ import random
 import inspect
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
-
+import cv2
+from zeit.easymocap.camera_utils import UndistortFisheye
+from zeit.visualizers.kp2dvis import Visualizer
+from zeit.easymocap.triangulation import triangulate
+from zeit.easymocap.triangulation import projectN3
+from zeit.filters.oneeuro import OneEuroFilter
+import matplotlib.pyplot as plt
 # class LabelSmoothingCrossEntropy(nn.Module):
 #     def __init__(self):
 #         super(LabelSmoothingCrossEntropy, self).__init__()
@@ -31,7 +39,83 @@ import torch.nn.functional as F
 #         smooth_loss = -logprobs.mean(dim=-1)
 #         loss = confidence * nll_loss + smoothing * smooth_loss
 #         return loss.mean()
+class HandVisualizer:
+    def __init__(self) -> None:
+        plt.ion()
+        self.first=1
+        self.links=[[0,1,2,3,4],[0,5,6,7,8],[0,9,10,11,12],[0,13,14,15,16],[0,17,18,19,20]]
+    def set_axes_equal(self,ax):
+        '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
+        cubes as cubes, etc..  This is one possible solution to Matplotlib's
+        ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
 
+        Input
+        ax: a matplotlib axis, e.g., as output from plt.gca().
+        '''
+
+        x_limits = ax.get_xlim3d()
+        y_limits = ax.get_ylim3d()
+        z_limits = ax.get_zlim3d()
+
+        x_range = abs(x_limits[1] - x_limits[0])
+        x_middle = np.mean(x_limits)
+        y_range = abs(y_limits[1] - y_limits[0])
+        y_middle = np.mean(y_limits)
+        z_range = abs(z_limits[1] - z_limits[0])
+        z_middle = np.mean(z_limits)
+
+        # The plot bounding box is a sphere in the sense of the infinity
+        # norm, hence I call half the max range the plot radius.
+        plot_radius = 0.5*max([x_range, y_range, z_range])
+
+        ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+        ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+        ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+    def show(self,kp3d):
+        # (42,4)
+        assert len(kp3d)==42
+        
+        if self.first!=1:
+            plt.clf()
+        else:
+            def getLen(xs):
+                return max(xs)-min(xs)
+            def getCen(xs):
+                return (max(xs)+min(xs))/2
+            mask=kp3d[:,3]>0
+            kp=kp3d[mask]
+            self.box_l=max(getLen(kp[:,0]),getLen(kp[:,1]),getLen(kp[:,2]))
+            self.box_cen=[getCen(kp[:,0]),getCen(kp[:,1]),getCen(kp[:,2])]
+            self.box_l*=1
+        self.first=0
+        ax = plt.axes(projection='3d')
+        def show_onehand(ps):
+            for l in self.links:
+                mask=ps[l][:,3]>0
+                p=ps[l][mask]
+                x=p[:,1]
+                y=p[:,0]
+                z=p[:,2]
+                # print(mask)
+                c= np.array([i*5 for i in l])[mask]
+                # ax.scatter3D(x, y, z, c=c)
+                ax.plot3D(x, y, z )
+                ax.set_title('3d Scatter plot')
+        def add_box():
+            x=[self.box_cen[1]-self.box_l ,self.box_cen[1]+self.box_l]
+            y=[self.box_cen[0]-self.box_l ,self.box_cen[0]+self.box_l]
+            z=[self.box_cen[2]-self.box_l ,self.box_cen[2]+self.box_l]
+            ax.scatter(x,y,z)
+        
+        show_onehand(kp3d[:21])
+        show_onehand(kp3d[21:])
+        add_box()
+
+
+        self.set_axes_equal(ax)
+        plt.show()
+        plt.pause(0.1)
+hv=HandVisualizer()        
 def init_seed(_):
     torch.cuda.manual_seed_all(1)
     torch.manual_seed(1)
@@ -217,8 +301,12 @@ class Processor():
         self.best_acc = 0
 
     def load_data(self):
+        """ 
+            加载数据
+        """
         Feeder = import_class(self.arg.feeder)
         self.data_loader = dict()
+        # train的dataloader
         if self.arg.phase == 'train':
             self.data_loader['train'] = torch.utils.data.DataLoader(
                 dataset=Feeder(**self.arg.train_feeder_args),
@@ -227,15 +315,20 @@ class Processor():
                 num_workers=self.arg.num_worker,
                 drop_last=True,
                 worker_init_fn=init_seed)
+        # test的dataloader
         self.data_loader['test'] = torch.utils.data.DataLoader(
             dataset=Feeder(**self.arg.test_feeder_args),
             batch_size=self.arg.test_batch_size,
             shuffle=False,
             num_workers=self.arg.num_worker,
             drop_last=False,
-            worker_init_fn=init_seed)
-
+            worker_init_fn=init_seed)  
+        
+        # import pdb;pdb.set_trace()
     def load_model(self):
+        """ 
+            加载模型
+        """
         output_device = self.arg.device[0] if type(
             self.arg.device) is list else self.arg.device
         self.output_device = output_device
@@ -253,6 +346,10 @@ class Processor():
                     weights = pickle.load(f)
             else:
                 weights = torch.load(self.arg.weights)
+                # model = MyNetwork().to(output_device) #实例化模型并加载到cpu货GPU中
+                # model.load_state_dict(torch.load(self.arg.weights))  #加载模型参数，model_cp为之前训练好的模型参数（zip格式）
+                # #重新保存网络参数，此时注意改为非zip格式
+                # torch.save(model.state_dict(), model_cp,_use_new_zipfile_serialization=False)
 
             weights = OrderedDict(
                 [[k.split('module.')[-1],
@@ -274,13 +371,13 @@ class Processor():
                     print('  ' + d)
                 state.update(weights)
                 self.model.load_state_dict(state)
-
-        if type(self.arg.device) is list:
-            if len(self.arg.device) > 1:
-                self.model = nn.DataParallel(
-                    self.model,
-                    device_ids=self.arg.device,
-                    output_device=output_device)
+        # 没有多设备gpu
+        # if type(self.arg.device) is list:
+        #     if len(self.arg.device) > 1:
+        #         self.model = nn.DataParallel(
+        #             self.model,
+        #             device_ids=self.arg.device,
+        #             output_device=output_device)
 
     def load_optimizer(self):
         if self.arg.optimizer == 'SGD':
@@ -361,8 +458,10 @@ class Processor():
         return split_time
 
     def train(self, epoch, save_model=False):
+        # 训练
         self.model.train()
         self.print_log('Training epoch: {}'.format(epoch + 1))
+        # 获取下train的dataloader
         loader = self.data_loader['train']
         self.adjust_learning_rate(epoch)
         loss_value = []
@@ -381,6 +480,7 @@ class Processor():
                 if 'DecoupleA' in key:
                     value.requires_grad = False
                     print(key + '-not require grad')
+        # 加载数据进行训练
         for batch_idx, (data, label, index) in enumerate(process):
             self.global_step += 1
             # get data
@@ -448,16 +548,43 @@ class Processor():
                 total_num = 0
                 loss_total = 0
                 step = 0
+                # 获取dataloader来进行process
                 process = tqdm(self.data_loader[ln])
-
+                # 从dataloader里面取出
+                # batch_idx
+                # data 数据
+                # label 标签
+                # index index
                 for batch_idx, (data, label, index) in enumerate(process):
+                    # 显示3维数据的手势
+                    # data[0,:,0,:,:].shape
+                    # torch.Size([3, 27, 1])
+                    # data.shape
+                    # torch.Size([64, 3, 160, 27, 1])
+                    data_tmp = data[0,:,0,:,:]
+                    img = np.zeros([400, 640, 3])
+                    dets = np.zeros([2, 6])
+                    keypoints3d = np.zeros([2, 21, 3])
+                    keypoints3d[0] = data_tmp.permute(2,1,0).numpy()[:,0:21,:]
+                    img_det = Visualizer.visualize_det_kp2ds(img, dets, keypoints3d)
+                    keypoints3d_tmp = np.zeros([42, 4])
+                    keypoints3d_tmp[:21,:3]=keypoints3d[0,:,:]
+                    keypoints3d_tmp[21:,:3]=keypoints3d[1,:,:]
+                    keypoints3d_tmp[:,3]=1
+                    print(keypoints3d[:,-1])
+                    hv.show(keypoints3d_tmp)
+
+                    cv2.imshow("data_tmp",img_det)
+                    key = cv2.waitKey(1)
+                    if key & 0xFF == ord('q'):
+                        break
                     data = Variable(
                         data.float().cuda(self.output_device),
                         requires_grad=False)
                     label = Variable(
                         label.long().cuda(self.output_device),
                         requires_grad=False)
-
+                    # run model
                     with torch.no_grad():
                         output = self.model(data)
 
@@ -466,10 +593,12 @@ class Processor():
                         l1 = l1.mean()
                     else:
                         l1 = 0
+                    # 从预测值和label GT计算相应的loss值 
                     loss = self.loss(output, label)
                     score_frag.append(output.data.cpu().numpy())
                     loss_value.append(loss.data.cpu().numpy())
 
+                    # 下一步
                     _, predict_label = torch.max(output.data, 1)
                     step += 1
 
@@ -487,7 +616,7 @@ class Processor():
                 if 'UCLA' in arg.Experiment_name:
                     self.data_loader[ln].dataset.sample_name = np.arange(
                         len(score))
-
+                # topk求accuracy
                 accuracy = self.data_loader[ln].dataset.top_k(score, 1)
                 if accuracy > self.best_acc:
                     self.best_acc = accuracy
@@ -521,9 +650,9 @@ class Processor():
             for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
                 save_model = ((epoch + 1) % self.arg.save_interval == 0) or (
                     epoch + 1 == self.arg.num_epoch)
-
+                # 训练
                 self.train(epoch, save_model=save_model)
-
+                # 使用test来评估
                 val_loss = self.eval(
                     epoch,
                     save_score=self.arg.save_score,

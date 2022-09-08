@@ -10,10 +10,11 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
+            "cwd": "${workspaceRoot}",
             "console": "integratedTerminal",
             "justMyCode": false,
             "args":[
-                "--config", "config/WLASL/test/test_joint.yaml", 
+                "--config", "config/WLASL/train/train_joint.yaml", 
             ]
         },
         {

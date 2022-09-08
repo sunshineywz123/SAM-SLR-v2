@@ -42,16 +42,16 @@ step:
 - 200
 test_batch_size: 64
 test_feeder_args:
-  data_path: /home/songyao/data/data/CSL/skeleton/val_data_joint.npy
+  data_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_data_joint.npy
   debug: false
-  label_path: /home/songyao/data/data/CSL/skeleton/val_label.pkl
+  label_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_label.pkl
   normalization: true
   random_mirror: false
 train_feeder_args:
-  data_path: /home/songyao/data/data/CSL/skeleton/train_data_joint.npy
+  data_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/train_data_joint.npy
   debug: false
   is_vector: false
-  label_path: /home/songyao/data/data/CSL/skeleton/train_label.pkl
+  label_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/train_label.pkl
   normalization: true
   random_choose: true
   random_mirror: true

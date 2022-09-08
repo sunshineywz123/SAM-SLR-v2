@@ -28,7 +28,7 @@ def gendata(data_path, label_path, out_path, part='train', config='27'):
     num_joints = len(selected)
     label_file = open(label_path, 'r', encoding='utf-8')
     
-
+    # 读取label和数据
     for line in label_file.readlines():
         line = line.strip()
         line = line.split(',')
@@ -38,9 +38,9 @@ def gendata(data_path, label_path, out_path, part='train', config='27'):
         # print(line[1])
         labels.append(int(line[1]))
         # print(labels[-1])
-
+    # 帧关键点数据
     fp = np.zeros((len(data), max_frame, num_joints, num_channels, max_body_true), dtype=np.float32)
-
+    # 生成关键点数据和label
     for i, data_path in enumerate(data):
 
         # print(sample_names[i])

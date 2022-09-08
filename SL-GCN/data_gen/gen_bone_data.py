@@ -54,7 +54,7 @@ datasets = {
 }
 
 from tqdm import tqdm
-
+# 获取bone的数据集
 for dataset in datasets:
     for set in sets:
         print(dataset, set)

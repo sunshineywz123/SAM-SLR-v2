@@ -15,7 +15,7 @@ parts = {
     'joint', 'bone'
 }
 from tqdm import tqdm
-
+# 获取motion的数据集
 for dataset in datasets:
     for set in sets:
         for part in parts:

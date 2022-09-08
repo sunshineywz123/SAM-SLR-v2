@@ -1,3 +1,6 @@
+# import matplotlib
+# matplotlib.use('TkAgg')
+
 import numpy as np
 import pickle
 import torch
@@ -6,6 +9,7 @@ import sys
 import random
 sys.path.extend(['../'])
 from feeders import tools
+# import tkinter as tk
 
 flip_index = np.concatenate(([0,2,1,4,3,6,5],[17,18,19,20,21,22,23,24,25,26],[7,8,9,10,11,12,13,14,15,16]), axis=0) 
 
@@ -146,13 +150,16 @@ def test(data_path, label_path, vid=None, graph=None, is_3d=False):
     :param is_3d: when vis NTU, set it True
     :return: 
     '''
+    # matplotlib.use('TkAgg')
+    
     import matplotlib.pyplot as plt
+
     loader = torch.utils.data.DataLoader(
         dataset=Feeder(data_path, label_path),
         batch_size=64,
         shuffle=False,
         num_workers=2)
-
+    # 如果可视化
     if vid is not None:
         sample_name = loader.dataset.sample_name
         sample_id = [name.split('.')[0] for name in sample_name]
@@ -165,12 +172,14 @@ def test(data_path, label_path, vid=None, graph=None, is_3d=False):
 
         plt.ion()
         fig = plt.figure()
+
+        # 如果显示3d
         if is_3d:
             from mpl_toolkits.mplot3d import Axes3D
             ax = fig.add_subplot(111, projection='3d')
         else:
             ax = fig.add_subplot(111)
-
+        # grap为空时
         if graph is None:
             p_type = ['b.', 'g.', 'r.', 'c.', 'm.', 'y.', 'k.', 'k.', 'k.', 'k.']
             pose = [
@@ -189,6 +198,7 @@ def test(data_path, label_path, vid=None, graph=None, is_3d=False):
             from os import path
             sys.path.append(
                 path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
+            # 获取graph类
             G = import_class(graph)()
             edge = G.inward
             pose = []
@@ -222,10 +232,14 @@ if __name__ == '__main__':
     import os
 
     os.environ['DISPLAY'] = 'localhost:10.0'
-    data_path = "../data/ntu/xview/val_data_joint.npy"
-    label_path = "../data/ntu/xview/val_label.pkl"
-    graph = 'graph.ntu_rgb_d.Graph'
-    test(data_path, label_path, vid='S004C001P003R001A032', graph=graph, is_3d=True)
+    # data_path = "../data/ntu/xview/val_data_joint.npy"
+    # label_path = "../data/ntu/xview/val_label.pkl"
+    data_path = "/home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_data_joint.npy"
+    label_path = "/home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_label.pkl"
+    graph = 'igraph.Graph'
+    # test(data_path, label_path, vid='S004C001P003R001A032', graph=graph, is_3d=True)
+    test(data_path, label_path, vid='P44_01_04_2', is_3d=True)
+    # P44_01_04_2
     # data_path = "../data/kinetics/val_data.npy"
     # label_path = "../data/kinetics/val_label.pkl"
     # graph = 'graph.Kinetics'
