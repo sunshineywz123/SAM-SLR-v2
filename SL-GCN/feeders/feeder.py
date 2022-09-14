@@ -7,11 +7,29 @@ import torch
 from torch.utils.data import Dataset
 import sys
 import random
+import os
 sys.path.extend(['../'])
 from feeders import tools
 # import tkinter as tk
-
+from torch.utils.tensorboard import SummaryWriter
 flip_index = np.concatenate(([0,2,1,4,3,6,5],[17,18,19,20,21,22,23,24,25,26],[7,8,9,10,11,12,13,14,15,16]), axis=0) 
+# Actions that we try to detect
+actions = np.array(['0', '1', '2','3','4','5','6','7','8','9','10','11','12'])
+
+# Path for exported data, numpy arrays
+DATA_PATH = os.path.join('/data/sense-hand-clean-dynamic-gesutre/MP_Data') 
+
+# Thirty videos worth of data
+no_sequences = 10000
+
+# Videos are going to be 30 frames in length
+sequence_length = 16
+
+global sequences
+global labels
+sequences, labels = [], []
+
+label_map = {label:num for num, label in enumerate(actions)}
 
 class Feeder(Dataset):
     def __init__(self, data_path, label_path,
@@ -67,6 +85,24 @@ class Feeder(Dataset):
             self.label = self.label[0:100]
             self.data = self.data[0:100]
             self.sample_name = self.sample_name[0:100]
+        for action in actions:
+            for sequence in range(no_sequences):
+                window = []
+                for frame_num in range(sequence_length):
+                    path = DATA_PATH+'/'+action+'/'+str(sequence)+'/'+"{}.npy".format(frame_num)
+                    if not((os.path.exists(path))):    
+                        continue
+
+                    res = np.load(os.path.join(DATA_PATH, action, str(sequence), "{}.npy".format(frame_num)))
+                    window.append(res)
+                if not((os.path.exists(path))):    
+                    continue
+                sequences.append(window)
+                labels.append(label_map[action])
+        self.data = np.array(sequences)
+        self.data = self.data.reshape(3117,3,16,-1,1)
+        self.data = self.data.reshape(3117,16,-1,3,1).swapaxes(2,3).swapaxes(1,2)
+        self.label = np.array(labels)
 
     def get_mean_map(self):
         data = self.data
@@ -87,10 +123,11 @@ class Feeder(Dataset):
 
         if self.random_choose:
             data_numpy = tools.random_choose(data_numpy, self.window_size)
-            
+        # ywz 
+        self.random_mirror = False     
         if self.random_mirror:
             if random.random() > self.random_mirror_p:
-                assert data_numpy.shape[2] == 27
+                # assert data_numpy.shape[2] == 27
                 data_numpy = data_numpy[:,:,flip_index,:]
                 if self.is_vector:
                     data_numpy[0,:,:,:] = - data_numpy[0,:,:,:]
@@ -234,8 +271,8 @@ if __name__ == '__main__':
     os.environ['DISPLAY'] = 'localhost:10.0'
     # data_path = "../data/ntu/xview/val_data_joint.npy"
     # label_path = "../data/ntu/xview/val_label.pkl"
-    data_path = "/home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_data_joint.npy"
-    label_path = "/home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_label.pkl"
+    data_path = "/data/Downloads/Downloads/IPN_Hand/preprocessed_data/CSL/val_data_joint.npy"
+    label_path = "/data/Downloads/Downloads/IPN_Hand/preprocessed_data/CSL/val_label.pkl"
     graph = 'igraph.Graph'
     # test(data_path, label_path, vid='S004C001P003R001A032', graph=graph, is_3d=True)
     test(data_path, label_path, vid='P44_01_04_2', is_3d=True)
