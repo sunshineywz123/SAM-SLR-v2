@@ -28,6 +28,8 @@ from zeit.easymocap.triangulation import triangulate
 from zeit.easymocap.triangulation import projectN3
 from zeit.filters.oneeuro import OneEuroFilter
 import matplotlib.pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter("./Log")
 # class LabelSmoothingCrossEntropy(nn.Module):
 #     def __init__(self):
 #         super(LabelSmoothingCrossEntropy, self).__init__()
@@ -482,7 +484,28 @@ class Processor():
                     print(key + '-not require grad')
         # 加载数据进行训练
         for batch_idx, (data, label, index) in enumerate(process):
+            
             self.global_step += 1
+
+            # todo:将input转换为figure图像进行tensroboard的保存
+            # grid = torchvision.utils.make_grid(inputs)
+            
+            # # width, height
+            # fig = plt.figure(figsize=(1 * 2.5, 3), dpi=100)
+            # # 将图像还原至标准化之前
+            # # mean:[0.485, 0.456, 0.406], std:[0.229, 0.224, 0.225]
+            # npimg = (npimg * [0.229, 0.224, 0.225] + [0.485, 0.456, 0.406]) * 255
+            # plt.imshow(npimg.astype('uint8'))
+            # # title = "{}, {:.2f}%\n(label: {})".format(
+            # #     flower_class[str(preds[batch_idx])],  # predict class
+            # #     probs[batch_idx] * 100,  # predict probability
+            # #     flower_class[str(label[batch_idx])]  # true class
+            # # )
+            # # 1：子图共1行，num_imgs:子图共num_imgs列，当前绘制第i+1个子图
+            # ax = fig.add_subplot(1, 1, batch_idx+1, xticks=[], yticks=[])
+            # # ax.set_title(title, color=("green" if preds[batch_idx] == label[batch_idx] else "red"))
+            # writer.writer.add_figure('inputs', inputs, batch_idx)
+
             # get data
             data = Variable(data.float().cuda(
                 self.output_device), requires_grad=False)
@@ -496,7 +519,8 @@ class Processor():
             else:
                 keep_prob = self.arg.keep_rate
             output = self.model(data, keep_prob)
-
+            writer.add_graph(self.model, data)
+            # writer.add_histogram("conv1",self.model.conv1.weight,batch_idx)
             if isinstance(output, tuple):
                 output, l1 = output
                 l1 = l1.mean()
@@ -510,6 +534,7 @@ class Processor():
             loss_value.append(loss.data)
             timer['model'] += self.split_time()
 
+        
             value, predict_label = torch.max(output.data, 1)
             acc = torch.mean((predict_label == label.data).float())
 
@@ -519,7 +544,9 @@ class Processor():
                     '\tBatch({}/{}) done. Loss: {:.4f}  lr:{:.6f}'.format(
                         batch_idx, len(loader), loss.data, self.lr))
             timer['statistics'] += self.split_time()
-
+            
+            writer.add_scalar('Loss/train', loss.data, batch_idx)
+            writer.add_scalar('lr/train', self.lr, batch_idx)
         # statistics of time consumption and loss
         proportion = {
             k: '{:02d}%'.format(int(round(v * 100 / sum(timer.values()))))
@@ -715,3 +742,4 @@ if __name__ == '__main__':
     init_seed(0)
     processor = Processor(arg)
     processor.start()
+    writer.close()    

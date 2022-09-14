@@ -10,7 +10,7 @@ train_feeder_args:
   window_size: 120
   random_shift: True
   normalization: True
-  random_mirror: True
+  random_mirror: False
   random_mirror_p: 0.5
   is_vector: False
 
@@ -23,10 +23,10 @@ test_feeder_args:
 # model
 model: model.decouple_gcn_attn.Model
 model_args:
-  num_class: 2000
-  num_point: 27
+  num_class: 13
+  num_point: 42
   num_person: 1
-  graph: graph.sign_27.Graph
+  graph: graph.sign_42.Graph
   groups: 16
   block_size: 41
   graph_args:
@@ -43,8 +43,8 @@ device: [0,1]
 # start_epoch: 183
 keep_rate: 0.9
 only_train_epoch: 1
-batch_size: 64
-test_batch_size: 64
+batch_size: 8
+test_batch_size: 8
 num_epoch: 250
 nesterov: True
 warm_up_epoch: 20
