@@ -3,8 +3,8 @@ Experiment_name: csl_joint_test
 # feeder
 feeder: feeders.feeder.Feeder
 train_feeder_args:
-  data_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/train_data_joint.npy
-  label_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/train_label.pkl
+  data_path: /data/preprocessed_data/CSL/train_data_joint.npy
+  label_path: /data/preprocessed_data/CSL/train_label.pkl
   debug: False
   random_choose: True
   window_size: 120
@@ -15,8 +15,8 @@ train_feeder_args:
   is_vector: False
 
 test_feeder_args:
-  data_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_data_joint.npy
-  label_path: /home/SENSETIME/yuanweizhong/Downloads/preprocessed_data/CSL/val_label.pkl
+  data_path: /data/preprocessed_data/CSL/val_data_joint.npy
+  label_path: /data/preprocessed_data/CSL/val_label.pkl
   random_mirror: False
   normalization: True
   debug: False
@@ -24,10 +24,10 @@ test_feeder_args:
 # model
 model: model.decouple_gcn_attn.Model
 model_args:
-  num_class: 500
-  num_point: 27
+  num_class: 13
+  num_point: 42
   num_person: 1
-  graph: graph.sign_27.Graph
+  graph: graph.sign_42.Graph
   groups: 16
   block_size: 41
   graph_args:
@@ -41,7 +41,7 @@ step: [150, 200]
 # test
 device: [0,1]
 phase: test
-weights: save_models/csl_joint-242.pt
+weights: save_models/wlasl_joint_attn2-19.pt
 start_epoch: 242
 keep_rate: 0.9
 only_train_epoch: 1

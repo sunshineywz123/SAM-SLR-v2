@@ -10,6 +10,7 @@ import random
 import os
 sys.path.extend(['../'])
 from feeders import tools
+from sklearn.model_selection import train_test_split
 # import tkinter as tk
 from torch.utils.tensorboard import SummaryWriter
 flip_index = np.concatenate(([0,2,1,4,3,6,5],[17,18,19,20,21,22,23,24,25,26],[7,8,9,10,11,12,13,14,15,16]), axis=0) 
@@ -99,11 +100,18 @@ class Feeder(Dataset):
                     continue
                 sequences.append(window)
                 labels.append(label_map[action])
-        self.data = np.array(sequences)
-        self.data = self.data.reshape(3117,3,16,-1,1)
-        self.data = self.data.reshape(3117,16,-1,3,1).swapaxes(2,3).swapaxes(1,2)
-        self.label = np.array(labels)
-
+        X = np.array(sequences)
+        X = X.reshape(3117,3,16,-1,1)
+        X = X.reshape(3117,16,-1,3,1).swapaxes(2,3).swapaxes(1,2)
+        y = np.array(labels)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05) 
+        if self.data_path == '/data/preprocessed_data/WLASL/skeleton/train_data_joint.npy':
+            self.data = X_train
+            self.label = y_train
+        else:
+            print("===========test:=======================")
+            self.data = X_test
+            self.label = y_test 
     def get_mean_map(self):
         data = self.data
         N, C, T, V, M = data.shape

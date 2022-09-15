@@ -569,6 +569,9 @@ class Processor():
                 l1 = l1.mean()
             else:
                 l1 = 0
+            # 通过输出 label l1来求loss
+            # CrossEntropyLoss
+            # GT label
             loss = self.loss(output, label) + l1
 
             
@@ -599,6 +602,13 @@ class Processor():
             
             writer.add_scalar('Loss/train', loss.data, batch_idx)
             writer.add_scalar('lr/train', self.lr, batch_idx)
+            # 每个batch size保存模型参数
+            state_dict = self.model.state_dict()
+            weights = OrderedDict([[k.split('module.')[-1],
+                                    v.cpu()] for k, v in state_dict.items()])
+            # import pdb;pdb.set_trace()
+            torch.save(weights, self.arg.model_saved_name +
+                    '-' + str(batch_idx) + '.pt')
         # statistics of time consumption and loss
         proportion = {
             k: '{:02d}%'.format(int(round(v * 100 / sum(timer.values()))))
@@ -609,7 +619,11 @@ class Processor():
         weights = OrderedDict([[k.split('module.')[-1],
                                 v.cpu()] for k, v in state_dict.items()])
 
+<<<<<<< HEAD
         torch.save(weights, self.arg.model_saved_name + 'epoch'+
+=======
+        torch.save(weights, self.arg.model_saved_name +'epoch'
+>>>>>>> 30386476545a7edeaf54b2f3309befb0cd9bc22c
                    '-' + str(epoch) + '.pt')
 
     def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None):
@@ -653,10 +667,17 @@ class Processor():
                     print(keypoints3d[:,-1])
                     # hv.show(keypoints3d_tmp)
 
+<<<<<<< HEAD
                     # cv2.imshow("data_tmp",img_det)
                     # key = cv2.waitKey(1)
                     # if key & 0xFF == ord('q'):
                     #     break
+=======
+                    cv2.imshow("img_det",img_det)
+                    key = cv2.waitKey(1)
+                    if key & 0xFF == ord('q'):
+                        break
+>>>>>>> 30386476545a7edeaf54b2f3309befb0cd9bc22c
                     data = Variable(
                         data.float().cuda(self.output_device),
                         requires_grad=False)
@@ -697,6 +718,7 @@ class Processor():
                         len(score))
                 # topk求accuracy
                 accuracy = self.data_loader[ln].dataset.top_k(score, 1)
+                writer.add_scalar('lr/accuracy', accuracy, batch_idx)
                 if accuracy > self.best_acc:
                     self.best_acc = accuracy
                     score_dict = dict(
