@@ -29,6 +29,29 @@ from zeit.easymocap.triangulation import projectN3
 from zeit.filters.oneeuro import OneEuroFilter
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
+USE_MULTI_GPU = True
+
+
+
+# 检测机器是否有多张显卡
+
+if USE_MULTI_GPU and torch.cuda.device_count() > 1:
+
+    MULTI_GPU = True
+
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = " 1,2,3"
+
+    device_ids = [1,2,3]
+
+else:
+
+    MULTI_GPU = False
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
 writer = SummaryWriter("./Log")
 # class LabelSmoothingCrossEntropy(nn.Module):
 #     def __init__(self):
@@ -312,7 +335,7 @@ class Processor():
         if self.arg.phase == 'train':
             self.data_loader['train'] = torch.utils.data.DataLoader(
                 dataset=Feeder(**self.arg.train_feeder_args),
-                batch_size=self.arg.batch_size,
+                batch_size=self.arg.batch_size*len(device_ids),
                 shuffle=True,
                 num_workers=self.arg.num_worker,
                 drop_last=True,
@@ -376,10 +399,12 @@ class Processor():
         # 没有多设备gpu
         # if type(self.arg.device) is list:
         #     if len(self.arg.device) > 1:
-        #         self.model = nn.DataParallel(
-        #             self.model,
-        #             device_ids=self.arg.device,
-        #             output_device=output_device)
+        # 模型转换为gpu并行
+        if MULTI_GPU:
+            self.model = nn.DataParallel(
+                self.model,
+                device_ids=self.arg.device,
+                output_device=output_device)
 
     def load_optimizer(self):
         if self.arg.optimizer == 'SGD':
@@ -407,12 +432,17 @@ class Processor():
                 weight_decay=self.arg.weight_decay)
         else:
             raise ValueError()
+        # optimizer转换为gpu并行
+        
 
         self.lr_scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1,
                                               patience=10, verbose=True,
                                               threshold=1e-4, threshold_mode='rel',
                                               cooldown=0)
+        if MULTI_GPU:
 
+                    self.optimizer = nn.DataParallel(self.optimizer, device_ids=device_ids)
+                    self.lr_scheduler = nn.DataParallel(self.lr_scheduler, device_ids=device_ids)
     def save_arg(self):
         # save arg
         arg_dict = vars(self.arg)
@@ -431,9 +461,14 @@ class Processor():
             else:
                 lr = self.arg.base_lr * (
                     0.1 ** np.sum(epoch >= np.array(self.arg.step)))
-            for param_group in self.optimizer.param_groups:
-                param_group['lr'] = lr
-            return lr
+            if MULTI_GPU:
+                for param_group in self.optimizer.module.param_groups:
+                    param_group['lr'] = lr
+                return lr
+            else:            
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = lr
+                return lr
         else:
             raise ValueError()
 
@@ -518,8 +553,16 @@ class Processor():
                 keep_prob = -(1 - self.arg.keep_rate) / 100 * epoch + 1.0
             else:
                 keep_prob = self.arg.keep_rate
+
+            # # 模型转换为gpu并行
+            # if MULTI_GPU:
+
+            #     self.model = nn.DataParallel(self.model,device_ids=device_ids)
+
+            # self.model.to(device)
+    
             output = self.model(data, keep_prob)
-            writer.add_graph(self.model, data)
+            # writer.add_graph(self.model, data.detach())
             # writer.add_histogram("conv1",self.model.conv1.weight,batch_idx)
             if isinstance(output, tuple):
                 output, l1 = output
@@ -528,9 +571,15 @@ class Processor():
                 l1 = 0
             loss = self.loss(output, label) + l1
 
+            
+
+
             self.optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
+            if MULTI_GPU:
+                self.optimizer.module.step()
+            else:
+                self.optimizer.step()
             loss_value.append(loss.data)
             timer['model'] += self.split_time()
 
@@ -538,7 +587,10 @@ class Processor():
             value, predict_label = torch.max(output.data, 1)
             acc = torch.mean((predict_label == label.data).float())
 
-            self.lr = self.optimizer.param_groups[0]['lr']
+            if MULTI_GPU:
+                self.lr = self.optimizer.module.param_groups[0]['lr']
+            else:
+                self.lr = self.optimizer.param_groups[0]['lr']
             if self.global_step % self.arg.log_interval == 0:
                 self.print_log(
                     '\tBatch({}/{}) done. Loss: {:.4f}  lr:{:.6f}'.format(
@@ -557,7 +609,7 @@ class Processor():
         weights = OrderedDict([[k.split('module.')[-1],
                                 v.cpu()] for k, v in state_dict.items()])
 
-        torch.save(weights, self.arg.model_saved_name +
+        torch.save(weights, self.arg.model_saved_name + 'epoch'+
                    '-' + str(epoch) + '.pt')
 
     def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None):
@@ -599,12 +651,12 @@ class Processor():
                     keypoints3d_tmp[21:,:3]=keypoints3d[1,:,:]
                     keypoints3d_tmp[:,3]=1
                     print(keypoints3d[:,-1])
-                    hv.show(keypoints3d_tmp)
+                    # hv.show(keypoints3d_tmp)
 
-                    cv2.imshow("data_tmp",img_det)
-                    key = cv2.waitKey(1)
-                    if key & 0xFF == ord('q'):
-                        break
+                    # cv2.imshow("data_tmp",img_det)
+                    # key = cv2.waitKey(1)
+                    # if key & 0xFF == ord('q'):
+                    #     break
                     data = Variable(
                         data.float().cuda(self.output_device),
                         requires_grad=False)
@@ -679,6 +731,7 @@ class Processor():
                     epoch + 1 == self.arg.num_epoch)
                 # 训练
                 self.train(epoch, save_model=save_model)
+                # test评估暂时未修改
                 # 使用test来评估
                 val_loss = self.eval(
                     epoch,

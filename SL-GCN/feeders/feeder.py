@@ -17,7 +17,7 @@ flip_index = np.concatenate(([0,2,1,4,3,6,5],[17,18,19,20,21,22,23,24,25,26],[7,
 actions = np.array(['0', '1', '2','3','4','5','6','7','8','9','10','11','12'])
 
 # Path for exported data, numpy arrays
-DATA_PATH = os.path.join('/data/sense-hand-clean-dynamic-gesutre/MP_Data') 
+DATA_PATH = os.path.join('/nas/datasets/SAM-SLR-v2/MP_Data') 
 
 # Thirty videos worth of data
 no_sequences = 10000

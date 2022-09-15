@@ -1,14 +1,12 @@
 Experiment_name: wlasl_joint_attn2
-base_lr: 0.1
-<<<<<<< HEAD
-batch_size: 16
-=======
-batch_size: 8
->>>>>>> 8fcbe9f61c1754ef06f2bfcee89f44181e47c84e
+base_lr: 0.01
+batch_size: 4
 config: config/WLASL/train/train_joint.yaml
 device:
 - 0
 - 1
+- 2
+- 3
 eval_interval: 5
 feeder: feeders.feeder.Feeder
 groups: 8
@@ -31,7 +29,7 @@ num_epoch: 250
 num_worker: 32
 only_train_epoch: 1
 only_train_part: true
-optimizer: SGD
+optimizer: Adam
 phase: train
 print_log: true
 save_interval: 2
@@ -44,21 +42,17 @@ start_epoch: 0
 step:
 - 150
 - 200
-<<<<<<< HEAD
-test_batch_size: 16
-=======
-test_batch_size: 8
->>>>>>> 8fcbe9f61c1754ef06f2bfcee89f44181e47c84e
+test_batch_size: 4
 test_feeder_args:
-  data_path: /data/preprocessed_data/WLASL/skeleton/val_data_joint.npy
-  label_path: /data/preprocessed_data/WLASL/skeleton/val_label.pkl
+  data_path: /nas/datasets/SAM-SLR-v2/data/preprocessed_data/WLASL/skeleton/val_data_joint.npy
+  label_path: /nas/datasets/SAM-SLR-v2/data/preprocessed_data/WLASL/skeleton/val_label.pkl
   normalization: true
   random_mirror: false
 train_feeder_args:
-  data_path: /data/preprocessed_data/WLASL/skeleton/train_data_joint.npy
+  data_path: /nas/datasets/SAM-SLR-v2/data/preprocessed_data/WLASL/skeleton/train_data_joint.npy
   debug: false
   is_vector: false
-  label_path: /data/preprocessed_data/WLASL/skeleton/train_label.pkl
+  label_path: /nas/datasets/SAM-SLR-v2/data/preprocessed_data/WLASL/skeleton/train_label.pkl
   normalization: true
   random_choose: true
   random_mirror: false
