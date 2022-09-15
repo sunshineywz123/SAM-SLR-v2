@@ -664,17 +664,10 @@ class Processor():
                     print(keypoints3d[:,-1])
                     # hv.show(keypoints3d_tmp)
 
-<<<<<<< HEAD
                     # cv2.imshow("data_tmp",img_det)
                     # key = cv2.waitKey(1)
                     # if key & 0xFF == ord('q'):
                     #     break
-=======
-                    cv2.imshow("img_det",img_det)
-                    key = cv2.waitKey(1)
-                    if key & 0xFF == ord('q'):
-                        break
->>>>>>> 30386476545a7edeaf54b2f3309befb0cd9bc22c
                     data = Variable(
                         data.float().cuda(self.output_device),
                         requires_grad=False)
