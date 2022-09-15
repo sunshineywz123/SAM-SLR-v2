@@ -32,4 +32,3 @@ oclgrind-*.zip
 *.sublime-*
 ./save_models/*
 ./Log/*
-extern/*
