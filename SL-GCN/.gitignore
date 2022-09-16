@@ -33,3 +33,5 @@ oclgrind-*.zip
 ./save_models/*
 !save_models/wlasl_joint_attn2-19.pt
 ./Log/*
+./save_models
+./Log

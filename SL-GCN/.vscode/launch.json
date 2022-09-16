@@ -14,8 +14,8 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args":[
-                // "--config", "config/WLASL/train/train_joint.yaml", 
-                "--config", "config/WLASL/test/test_joint.yaml", 
+                "--config", "config/WLASL/train/train_joint.yaml", 
+                // "--config", "config/WLASL/test/test_joint.yaml", 
             ]
         },
         {
