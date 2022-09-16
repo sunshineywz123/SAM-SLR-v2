@@ -29,7 +29,7 @@ from zeit.easymocap.triangulation import projectN3
 from zeit.filters.oneeuro import OneEuroFilter
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
-USE_MULTI_GPU = True
+USE_MULTI_GPU = False
 
 
 
@@ -48,6 +48,7 @@ if USE_MULTI_GPU and torch.cuda.device_count() > 1:
 else:
 
     MULTI_GPU = False
+    device_ids = [0]
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -554,12 +555,6 @@ class Processor():
             else:
                 keep_prob = self.arg.keep_rate
 
-            # # 模型转换为gpu并行
-            # if MULTI_GPU:
-
-            #     self.model = nn.DataParallel(self.model,device_ids=device_ids)
-
-            # self.model.to(device)
     
             output = self.model(data, keep_prob)
             # writer.add_graph(self.model, data.detach())
@@ -750,7 +745,7 @@ class Processor():
                     save_score=self.arg.save_score,
                     loader_name=['test'])
 
-                # self.lr_scheduler.step(val_loss)
+                self.lr_scheduler.step(val_loss)
 
             print('best accuracy: ', self.best_acc,
                   ' model_name: ', self.arg.model_saved_name)

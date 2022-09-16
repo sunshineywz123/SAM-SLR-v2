@@ -30,5 +30,5 @@ oclgrind-*.zip
 .DS_Store
 *.kdev4
 *.sublime-*
-./save_models/*
-./Log/*
+./save_models
+./Log
