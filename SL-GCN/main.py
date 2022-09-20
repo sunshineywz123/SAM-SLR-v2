@@ -16,7 +16,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from tqdm import tqdm
 import shutil
-from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR,CosineAnnealingLR
 import random
 import inspect
 import torch.backends.cudnn as cudnn
@@ -41,9 +41,9 @@ if USE_MULTI_GPU and torch.cuda.device_count() > 1:
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = " 1,2,3"
+    os.environ["CUDA_VISIBLE_DEVICES"] = " 0,1,2,3"
 
-    device_ids = [1,2,3]
+    device_ids = [0,1,2,3]
 
 else:
 
@@ -53,7 +53,8 @@ else:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-writer = SummaryWriter("./Log")
+writer = SummaryWriter("./Log/train")
+writer_eval = SummaryWriter("./Log/eval")
 # class LabelSmoothingCrossEntropy(nn.Module):
 #     def __init__(self):
 #         super(LabelSmoothingCrossEntropy, self).__init__()
@@ -360,7 +361,7 @@ class Processor():
         self.output_device = output_device
         Model = import_class(self.arg.model)
         shutil.copy2(inspect.getfile(Model), self.arg.work_dir)
-        self.model = Model(**self.arg.model_args).cuda(output_device)
+        self.model = Model(**self.arg.model_args,in_channels=4).cuda(output_device)
         # print(self.model)
         self.loss = nn.CrossEntropyLoss().cuda(output_device)
         # self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
@@ -440,6 +441,7 @@ class Processor():
                                               patience=10, verbose=True,
                                               threshold=1e-4, threshold_mode='rel',
                                               cooldown=0)
+        # self.lr_scheduler = CosineAnnealingLR(self.optimizer,T_max= 20)
         if MULTI_GPU:
 
                     self.optimizer = nn.DataParallel(self.optimizer, device_ids=device_ids)
@@ -595,8 +597,7 @@ class Processor():
                         batch_idx, len(loader), loss.data, self.lr))
             timer['statistics'] += self.split_time()
             
-            writer.add_scalar('Loss/train', loss.data, batch_idx)
-            writer.add_scalar('lr/train', self.lr, batch_idx)
+
             # 每个batch size保存模型参数
             state_dict = self.model.state_dict()
             weights = OrderedDict([[k.split('module.')[-1],
@@ -604,6 +605,9 @@ class Processor():
             # import pdb;pdb.set_trace()
             torch.save(weights, self.arg.model_saved_name +
                     '-' + str(batch_idx) + '.pt')
+        # 保存loss，lr将其可视化
+        writer.add_scalar('Loss/train', loss.data, epoch)
+        writer.add_scalar('lr/train', self.lr, epoch)
         # statistics of time consumption and loss
         proportion = {
             k: '{:02d}%'.format(int(round(v * 100 / sum(timer.values()))))
@@ -650,7 +654,7 @@ class Processor():
                     img = np.zeros([400, 640, 3])
                     dets = np.zeros([2, 6])
                     keypoints3d = np.zeros([2, 21, 3])
-                    keypoints3d[0] = data_tmp.permute(2,1,0).numpy()[:,0:21,:]
+                    keypoints3d[0] = data_tmp[0:3,:,:].permute(2,1,0).numpy()[:,0:21,:]
                     img_det = Visualizer.visualize_det_kp2ds(img, dets, keypoints3d)
                     keypoints3d_tmp = np.zeros([42, 4])
                     keypoints3d_tmp[:21,:3]=keypoints3d[0,:,:]
@@ -703,7 +707,8 @@ class Processor():
                         len(score))
                 # topk求accuracy
                 accuracy = self.data_loader[ln].dataset.top_k(score, 1)
-                writer.add_scalar('lr/accuracy', accuracy, batch_idx)
+                writer_eval.add_scalar('accuracy/eval', accuracy, epoch)
+                writer_eval.add_scalar('Loss/train', loss.data, epoch)
                 if accuracy > self.best_acc:
                     self.best_acc = accuracy
                     score_dict = dict(
@@ -744,9 +749,10 @@ class Processor():
                     epoch,
                     save_score=self.arg.save_score,
                     loader_name=['test'])
-
-                self.lr_scheduler.step(val_loss)
-
+                if MULTI_GPU:
+                    self.lr_scheduler.module.step(val_loss)
+                else:
+                    self.lr_scheduler.step(val_loss)
             print('best accuracy: ', self.best_acc,
                   ' model_name: ', self.arg.model_saved_name)
         # 测试

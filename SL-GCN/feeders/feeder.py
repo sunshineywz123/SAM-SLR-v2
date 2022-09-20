@@ -169,7 +169,11 @@ class Feeder(Dataset):
         if self.random_move:
             data_numpy = tools.random_move(data_numpy)
 
-        return data_numpy, label, index
+        data_tmp = np.zeros([4, data_numpy.shape[1], data_numpy.shape[2], data_numpy.shape[3]])
+        data_tmp[3,:,:,:]=1
+        data_tmp[0:3,:,:,:]=data_numpy
+        return data_tmp, label, index
+        # return data_numpy, label, index
 
     def top_k(self, score, top_k):
         rank = score.argsort()

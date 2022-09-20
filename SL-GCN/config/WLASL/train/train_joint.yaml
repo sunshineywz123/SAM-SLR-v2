@@ -34,7 +34,7 @@ model_args:
 
 #optim
 weight_decay: 0.0001
-base_lr: 0.01
+base_lr: 0.001
 step: [150, 200]
 optimizer: 'Adam'
 # training
@@ -43,7 +43,7 @@ device: [0,1,2,3]
 # start_epoch: 183
 keep_rate: 0.9
 only_train_epoch: 1
-batch_size: 4
+batch_size: 32
 test_batch_size: 4
 num_epoch: 250
 nesterov: True
