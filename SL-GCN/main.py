@@ -437,11 +437,11 @@ class Processor():
         # optimizer转换为gpu并行
         
 
-        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1,
-                                              patience=10, verbose=True,
-                                              threshold=1e-4, threshold_mode='rel',
-                                              cooldown=0)
-        # self.lr_scheduler = CosineAnnealingLR(self.optimizer,T_max= 20)
+        # self.lr_scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1,
+        #                                       patience=10, verbose=True,
+        #                                       threshold=1e-4, threshold_mode='rel',
+        #                                       cooldown=0)
+        self.lr_scheduler = CosineAnnealingLR(self.optimizer,T_max= 64)
         if MULTI_GPU:
 
                     self.optimizer = nn.DataParallel(self.optimizer, device_ids=device_ids)
@@ -557,7 +557,7 @@ class Processor():
             else:
                 keep_prob = self.arg.keep_rate
 
-    
+            data=torch.nn.functional.normalize(data, p=2,dim=3)
             output = self.model(data, keep_prob)
             # writer.add_graph(self.model, data.detach())
             # writer.add_histogram("conv1",self.model.conv1.weight,batch_idx)
@@ -673,6 +673,8 @@ class Processor():
                     label = Variable(
                         label.long().cuda(self.output_device),
                         requires_grad=False)
+                    data=torch.nn.functional.normalize(data, p=2,dim=3)
+                    
                     # run model
                     with torch.no_grad():
                         output = self.model(data)

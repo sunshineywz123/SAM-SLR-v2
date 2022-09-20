@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 import sys
 import random
 import os
+from sklearn import preprocessing as pp
 sys.path.extend(['../'])
 from feeders import tools
 from sklearn.model_selection import train_test_split
@@ -103,8 +104,9 @@ class Feeder(Dataset):
         X = np.array(sequences)
         X = X.reshape(len(sequences),3,16,-1,1)
         X = X.reshape(len(sequences),16,-1,3,1).swapaxes(2,3).swapaxes(1,2)
+        
         y = np.array(labels)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05) 
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2) 
         if self.data_path == '/data/preprocessed_data/WLASL/skeleton/train_data_joint.npy':
             self.data = X_train
             self.label = y_train
