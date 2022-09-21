@@ -36,7 +36,7 @@ label_map = {label:num for num, label in enumerate(actions)}
 class Feeder(Dataset):
     def __init__(self, data_path, label_path,
                  random_choose=False, random_shift=False, random_move=False,
-                 window_size=-1, normalization=False, debug=False, use_mmap=True, random_mirror=False, random_mirror_p=0.5, is_vector=False):
+                 window_size=-1, normalization=False, debug=False, use_mmap=True, random_mirror=False, random_mirror_p=0.5, is_vector=False,dims=3):
         """
         
         :param data_path: 
@@ -63,6 +63,7 @@ class Feeder(Dataset):
         self.random_mirror_p = random_mirror_p
         self.load_data()
         self.is_vector = is_vector
+        self.dims = dims
         if normalization:
             self.get_mean_map()
         print(len(self.label))
@@ -171,11 +172,14 @@ class Feeder(Dataset):
         if self.random_move:
             data_numpy = tools.random_move(data_numpy)
 
-        data_tmp = np.zeros([4, data_numpy.shape[1], data_numpy.shape[2], data_numpy.shape[3]])
-        data_tmp[3,:,:,:]=1
-        data_tmp[0:3,:,:,:]=data_numpy
-        return data_tmp, label, index
-        # return data_numpy, label, index
+        if 3==self.dims:
+            data_tmp = np.zeros([4, data_numpy.shape[1], data_numpy.shape[2], data_numpy.shape[3]])
+            data_tmp[3,:,:,:]=1
+            data_tmp[0:3,:,:,:]=data_numpy
+            return data_tmp, label, index
+        else:
+            data_numpy[2,:,:,:]=1
+            return data_numpy, label, index
 
     def top_k(self, score, top_k):
         rank = score.argsort()

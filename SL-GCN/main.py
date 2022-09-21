@@ -293,6 +293,8 @@ def get_parser():
     parser.add_argument('--only_train_part', default=True)
     parser.add_argument('--only_train_epoch', default=0)
     parser.add_argument('--warm_up_epoch', default=0)
+
+    parser.add_argument('--dims', default=0)
     return parser
 
 
@@ -336,7 +338,7 @@ class Processor():
         # train的dataloader
         if self.arg.phase == 'train':
             self.data_loader['train'] = torch.utils.data.DataLoader(
-                dataset=Feeder(**self.arg.train_feeder_args),
+                dataset=Feeder(**self.arg.train_feeder_args,dims=self.arg.dims),
                 batch_size=self.arg.batch_size*len(device_ids),
                 shuffle=True,
                 num_workers=self.arg.num_worker,
@@ -344,7 +346,7 @@ class Processor():
                 worker_init_fn=init_seed)
         # test的dataloader
         self.data_loader['test'] = torch.utils.data.DataLoader(
-            dataset=Feeder(**self.arg.test_feeder_args),
+            dataset=Feeder(**self.arg.test_feeder_args,dims=self.arg.dims),
             batch_size=self.arg.test_batch_size,
             shuffle=False,
             num_workers=self.arg.num_worker,
@@ -361,7 +363,7 @@ class Processor():
         self.output_device = output_device
         Model = import_class(self.arg.model)
         shutil.copy2(inspect.getfile(Model), self.arg.work_dir)
-        self.model = Model(**self.arg.model_args,in_channels=4).cuda(output_device)
+        self.model = Model(**self.arg.model_args,in_channels=self.arg.dims+1).cuda(output_device)
         # print(self.model)
         self.loss = nn.CrossEntropyLoss().cuda(output_device)
         # self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
