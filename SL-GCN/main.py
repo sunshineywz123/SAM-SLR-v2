@@ -29,7 +29,7 @@ from zeit.easymocap.triangulation import projectN3
 from zeit.filters.oneeuro import OneEuroFilter
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
-USE_MULTI_GPU = False
+USE_MULTI_GPU = True
 
 
 
@@ -439,11 +439,11 @@ class Processor():
         # optimizer转换为gpu并行
         
 
-        # self.lr_scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.1,
-        #                                       patience=10, verbose=True,
-        #                                       threshold=1e-4, threshold_mode='rel',
-        #                                       cooldown=0)
-        self.lr_scheduler = CosineAnnealingLR(self.optimizer,T_max= 64)
+        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, mode='min', factor=0.9,
+                                              patience=10000, verbose=True,
+                                              threshold=1e-4, threshold_mode='rel',
+                                              cooldown=0,min_lr=0.000007)
+        # self.lr_scheduler = CosineAnnealingLR(self.optimizer,T_max= 64)
         if MULTI_GPU:
 
                     self.optimizer = nn.DataParallel(self.optimizer, device_ids=device_ids)
@@ -507,6 +507,8 @@ class Processor():
         loader = self.data_loader['train']
         self.adjust_learning_rate(epoch)
         loss_value = []
+        score_frag = []
+        label_frag = []
         self.record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
         process = tqdm(loader)
@@ -560,6 +562,7 @@ class Processor():
                 keep_prob = self.arg.keep_rate
 
             data=torch.nn.functional.normalize(data, p=2,dim=3)
+            # torch.Size([128, 4, 120, 42, 1])
             output = self.model(data, keep_prob)
             # writer.add_graph(self.model, data.detach())
             # writer.add_histogram("conv1",self.model.conv1.weight,batch_idx)
@@ -572,9 +575,12 @@ class Processor():
             # CrossEntropyLoss
             # GT label
             loss = self.loss(output, label) + l1
-
-            
-
+            print("train output:",output)
+            print("train label:",label)
+            print("train l1:",l1)
+            print("train loss:",loss)
+            score_frag.append(output.data.cpu().numpy())
+            label_frag.append(label.data.cpu().numpy())
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -587,6 +593,7 @@ class Processor():
 
         
             value, predict_label = torch.max(output.data, 1)
+            print("train predict_label:",predict_label)
             acc = torch.mean((predict_label == label.data).float())
 
             if MULTI_GPU:
@@ -607,6 +614,16 @@ class Processor():
             # import pdb;pdb.set_trace()
             torch.save(weights, self.arg.model_saved_name +
                     '-' + str(batch_idx) + '.pt')
+        score = np.concatenate(score_frag)
+        label_value = np.concatenate(label_frag)
+        # topk求accuracy
+        # accuracy = self.data_loader['train'].dataset.top_k(score, 1)
+        rank = score.argsort()
+        top_k = 1
+        hit_top_k = [l in rank[i, -top_k:] for i, l in enumerate(label_value)]
+        accuracy =  sum(hit_top_k) * 1.0 / len(hit_top_k)
+        
+        writer.add_scalar('accuracy/eval', accuracy, epoch)
         # 保存loss，lr将其可视化
         writer.add_scalar('Loss/train', loss.data, epoch)
         writer.add_scalar('lr/train', self.lr, epoch)
@@ -635,6 +652,7 @@ class Processor():
             for ln in loader_name:
                 loss_value = []
                 score_frag = []
+                label_frag = []
                 right_num_total = 0
                 total_num = 0
                 loss_total = 0
@@ -688,8 +706,14 @@ class Processor():
                         l1 = 0
                     # 从预测值和label GT计算相应的loss值 
                     loss = self.loss(output, label)
+
+                    print("test output:",output)
+                    print("test label:",label)
+                    print("test l1:",l1)
+                    print("test loss:",loss)
                     score_frag.append(output.data.cpu().numpy())
                     loss_value.append(loss.data.cpu().numpy())
+                    label_frag.append(label.data.cpu().numpy())
 
                     # 下一步
                     _, predict_label = torch.max(output.data, 1)
@@ -705,7 +729,7 @@ class Processor():
                                 f_w.write(str(index[i]) + ',' +
                                         str(x) + ',' + str(true[i]) + '\n')
                 score = np.concatenate(score_frag)
-
+                label_value = np.concatenate(label_frag)
                 if 'UCLA' in arg.Experiment_name:
                     self.data_loader[ln].dataset.sample_name = np.arange(
                         len(score))
@@ -718,10 +742,14 @@ class Processor():
                     score_dict = dict(
                         zip(self.data_loader[ln].dataset.sample_name, score))
 
+                    label_dict = dict(
+                        zip(self.data_loader[ln].dataset.sample_name, label_value))
                     with open('./work_dir/' + arg.Experiment_name + '/eval_results/best_acc' + '.pkl'.format(
                             epoch, accuracy), 'wb') as f:
                         pickle.dump(score_dict, f)
-
+                    # with open('./work_dir/' + arg.Experiment_name + '/eval_results/val_label' + '.pkl'.format(
+                    #         epoch, accuracy), 'wb') as f:
+                    #     pickle.dump(label_dict, f)
                 print('Eval Accuracy: ', accuracy,
                     ' model: ', self.arg.model_saved_name)
 

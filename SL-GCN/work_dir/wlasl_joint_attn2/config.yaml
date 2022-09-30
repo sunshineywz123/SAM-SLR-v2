@@ -1,12 +1,11 @@
 Experiment_name: wlasl_joint_attn2
-base_lr: 0.001
+base_lr: 0.0007
 batch_size: 32
 config: config/WLASL/train/train_joint.yaml
 device:
 - 0
-- 1
 - 2
-- 3
+dims: 3
 eval_interval: 5
 feeder: feeders.feeder.Feeder
 groups: 8
@@ -25,7 +24,7 @@ model_args:
   num_point: 42
 model_saved_name: ./save_models/wlasl_joint_attn2
 nesterov: true
-num_epoch: 250
+num_epoch: 1000
 num_worker: 32
 only_train_epoch: 1
 only_train_part: true
@@ -50,7 +49,7 @@ test_feeder_args:
   random_mirror: false
 train_feeder_args:
   data_path: /nas/datasets/SAM-SLR-v2/data/preprocessed_data/WLASL/skeleton/train_data_joint.npy
-  debug: false
+  debug: true
   is_vector: false
   label_path: /nas/datasets/SAM-SLR-v2/data/preprocessed_data/WLASL/skeleton/train_label.pkl
   normalization: true
@@ -58,8 +57,8 @@ train_feeder_args:
   random_mirror: false
   random_mirror_p: 0.5
   random_shift: true
-  window_size: 120
+  window_size: 16
 warm_up_epoch: 20
 weight_decay: 0.0001
-weights: null
+weights: save_models/wlasl_joint_attn2epoch-999_best.pt
 work_dir: ./work_dir/wlasl_joint_attn2

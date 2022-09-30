@@ -102,12 +102,24 @@ class Feeder(Dataset):
                     continue
                 sequences.append(window)
                 labels.append(label_map[action])
+        # len(sequences) 3117
+        # len(labels) 3117 
+        # X (3117, 16, 126)
         X = np.array(sequences)
-        X = X.reshape(len(sequences),3,16,-1,1)
+        # X (3117, 3, 16, 42, 1)
+        # X = X.reshape(len(sequences),3,16,-1,1)
         X = X.reshape(len(sequences),16,-1,3,1).swapaxes(2,3).swapaxes(1,2)
-        
+        delta = True
+        if delta:
+            fp_sp = X
+            N, C, T, V, M = X.shape
+            for v1 in range(1,int(V/2)):
+                fp_sp[:,:,:,v1,:]  = X[:,:,:,v1,:] - X[:,:,:,0,:]
+            for v2 in range(int(V/2)+1,int(V)):
+                fp_sp[:,:,:,v2,:]  = X[:,:,:,v2,:] - X[:,:,:,int(V/2),:]
+            X = fp_sp   
         y = np.array(labels)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2) 
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.26) 
         if self.data_path == '/data/preprocessed_data/WLASL/skeleton/train_data_joint.npy':
             self.data = X_train
             self.label = y_train
